@@ -367,18 +367,20 @@ class App:
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_PAGEUP:
                 self.changed = True
-                if self.spn * 1.8 > 90:
-                    self.spn = 90
-                elif self.spn < 1:
-                    self.spn *= 3
+                if 0.01 < self.spn < 0.1:
+                    self.spn *= 4
+                elif 0.1 < self.spn < 1:
+                    self.spn *= 1.4
+                elif self.spn > 1:
+                    self.spn *= 1.1
                 else:
                     self.spn = self.spn * 1.8
             elif event.key == pygame.K_PAGEDOWN and self.spn * 0.5 >= 0:
                 self.changed = True
                 if 0.01 < self.spn < 1:
-                    self.spn *= 0.1
+                    self.spn *= 0.7
                 elif self.spn > 1:
-                    self.spn *= 0.5
+                    self.spn *= 0.9
                 else:
                     self.spn = 0.01
         # print(self.spn)
