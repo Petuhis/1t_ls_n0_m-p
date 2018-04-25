@@ -493,6 +493,7 @@ class App:
         # Долгота и Широта :
             toponym_longitude, toponym_lattitude = toponym_coodrinates.split(" ")
             self.lat, self.lon = float(toponym_lattitude), float(toponym_longitude)
+            self.spn = 0.032
             self.new_lon, self.new_lat = self.lon, self.lat
             self.metka = ','.join([str(i) for i in [toponym_longitude, toponym_lattitude]])
             self.rv_geocode()
