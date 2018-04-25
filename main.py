@@ -3,6 +3,17 @@ import requests
 import config
 import sys
 import os
+import math
+
+try:
+    from pygeotile import point
+except:
+    try:
+        os.system('pip install pygeotile')
+    except:
+        print('Не удалось поставить pygeotile.')
+    finally:
+         from pygeotile import point
 
 
 class Label:
@@ -191,8 +202,8 @@ class Checkbox:
 class App:
     def __init__(self, surface):
         # Инициализация с начальными значениями
-        self.spn = 25
-        self.lon, self.lat = 133.795384, -25.694768
+
+        self.lon, self.lat = 50, 0
         self.new_lon, self.new_lat = self.lon, self.lat
         self.curr_layer = layer[0]
         self.surface = surface
@@ -224,7 +235,14 @@ class App:
         self.running = True
         self.changed = True
         self.index = False
+        self.spns = [0.001, 0.002, 0.004, 0.008, 0.016, 0.032, 0.064, 0.128, 0.256, 0.512, 1.024, 2.048, 4.096, 8.192,
+                     16.384, 32.768]  # 65.536, 90
+        self.zooms = {32.768: 4, 16.384: 5, 8.192: 6, 4.096: 7, 2.048: 8, 1.024: 9, 0.512: 10, #90: 1, 65.536: 2,
+                      0.256: 11, 0.128: 12, 0.064: 13, 0.032: 14, 0.016: 15, 0.008: 16, 0.004: 17, 0.002: 18, 0.001: 19}
+        self.zoomsN = {32.768: 3, 16.384: 4, 8.192: 5, 4.096: 6, 2.048: 7, 1.024: 8, 0.512: 9,
+                      0.256: 10, 0.128: 11, 0.064: 12, 0.032: 13, 0.016: 14, 0.008: 15, 0.004: 16, 0.002: 17, 0.001: 18} #90: 1, 65.536: 2
 
+        self.spn = 32.768
         # Запросы и прогрузка
         self.geocode_request = None
         self.response = None
@@ -233,14 +251,25 @@ class App:
         self.map_request()  # Меняет response(API запрос)
         self.load_image()   # Меняет map_file(surface)
 
+
     def calculate_from_pixels(self, pos):
         x_pixel, y_pixel = pos
-        delta_x, delta_y = x_pixel - width/2, y_pixel - height/2
-        koef1 = self.spn/width * 2.1 + (self.spn/680) * 0.01
-        koef2 = self.spn/height * 1.64
-        self.new_lon, self.new_lat = self.lon + (delta_x * koef1), self.lat - (delta_y * koef2)
-        # print(self.new_lon, self.new_lat)
-        # print(self.lon, self.lat, koef)
+        delta_x, delta_y = x_pixel - width / 2, y_pixel - height / 2
+
+        central_point = point.Point.from_latitude_longitude(self.lat, self.lon)
+
+        if 32.768 > self.lat:
+            zoom = self.zooms[self.spn]
+        else:
+            zoom = self.zoomsN[self.spn]
+        # zoom = 11
+        c_x, c_y = central_point.pixels(zoom=zoom)
+
+        click_point = point.Point.from_pixel(int(c_x + delta_x), int(c_y + delta_y), zoom=zoom)
+        new_lat, new_lon = click_point.latitude_longitude
+
+        self.new_lon = new_lon
+        self.new_lat = new_lat
 
     # Обработчик событий, потому что возможен случай, когда событий нет, но обновлять надо
     def event_tracker(self, event):
@@ -249,6 +278,7 @@ class App:
             global running
             running = False
             return 0
+
         elif event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:
                 possible = True
@@ -331,7 +361,8 @@ class App:
             params = {
                 "ll": ",".join([str(self.lon), str(self.lat)]),
                 "spn": ",".join([str(self.spn), str(self.spn)]),
-                "l": self.curr_layer
+                "l": self.curr_layer,
+                'z': '8',
             }
             if self.metka:
                 params['pt'] = "{0},pm2dgl".format(self.metka)
@@ -366,23 +397,17 @@ class App:
     def resize(self, event):
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_PAGEUP:
+                spn = self.spns.index(self.spn)
                 self.changed = True
-                if 0.01 < self.spn < 0.1:
-                    self.spn *= 4
-                elif 0.1 < self.spn < 1:
-                    self.spn *= 1.4
-                elif self.spn > 1:
-                    self.spn *= 1.1
-                else:
-                    self.spn = self.spn * 1.8
+                if spn < len(self.spns) - 1:
+                    spn += 1
+                self.spn = self.spns[spn]
             elif event.key == pygame.K_PAGEDOWN and self.spn * 0.5 >= 0:
+                spn = self.spns.index(self.spn)
                 self.changed = True
-                if 0.01 < self.spn < 1:
-                    self.spn *= 0.7
-                elif self.spn > 1:
-                    self.spn *= 0.9
-                else:
-                    self.spn = 0.01
+                if spn > 0:
+                    spn -= 1
+                self.spn = self.spns[spn]
         # print(self.spn)
 
     # Поиск по запросу
